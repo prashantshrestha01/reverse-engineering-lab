@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hexview — browser hex viewer</title>
+<style>
+  body { font-family: ui-monospace, Menlo, Consolas, monospace; margin: 2rem;
+         background: #0d1117; color: #c9d1d9; }
+  h1 { font-size: 1.1rem; font-weight: 600; }
+  .controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+              margin-bottom: 1rem; }
+  input[type="text"] { background: #161b22; color: #c9d1d9;
+                       border: 1px solid #30363d; border-radius: 6px;
+                       padding: 0.35rem 0.6rem; width: 22rem; }
+  #meta { color: #8b949e; font-size: 0.85rem; }
+  table { border-collapse: collapse; font-size: 0.85rem; line-height: 1.5; }
+  td { padding: 0 0.6rem; white-space: pre; vertical-align: top; }
+  td.off { color: #58a6ff; }
+  td.ascii { color: #7ee787; letter-spacing: 0.05em; }
+  .hl { background: #f0883e; color: #0d1117; border-radius: 2px; }
+  .note { color: #8b949e; font-size: 0.8rem; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>hexview — pick a file, view its bytes, search them</h1>
+<div class="controls">
+  <input type="file" id="picker">
+  <input type="text" id="search" placeholder="search bytes: hex (6f 70 65 6e) or text (opensesame)">
+  <span id="meta">no file loaded</span>
+</div>
+<div id="out"></div>
+<p class="note">Everything runs locally in your browser — the file never leaves the page.
+Rendering is capped at the first 512 KiB.</p>
+
+<script>
+const MAX_RENDER = 512 * 1024;
+let bytes = null;
+
+const picker = document.getElementById('picker');
+const searchBox = document.getElementById('search');
+const out = document.getElementById('out');
+const meta = document.getElementById('meta');
+
+picker.addEventListener('change', () => {
+  const file = picker.files[0];
+  if (!file) return;
+  file.arrayBuffer().then(buf => {
+    bytes = new Uint8Array(buf);
+    meta.textContent = file.name + ' — ' + bytes.length + ' bytes';
+    render();
+  });
+});
+searchBox.addEventListener('input', render);
+
+function parseSearch(text) {
+  text = text.trim();
+  if (!text) return null;
+  const hexOnly = text.replace(/\s+/g, '');
+  if (/^[0-9a-fA-F]+$/.test(hexOnly) && hexOnly.length % 2 === 0) {
+    const arr = new Uint8Array(hexOnly.length / 2);
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = parseInt(hexOnly.substr(i * 2, 2), 16);
+    }
+    return arr;
+  }
+  return new TextEncoder().encode(text);
+}
+
+function findMatches(haystack, needle, limit) {
+  const hits = [];
+  if (!needle || needle.length === 0 || needle.length > haystack.length) return hits;
+  outer:
+  for (let i = 0; i + needle.length <= haystack.length && i < limit; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer;
+    }
+    hits.push(i);
+    i += needle.length - 1;
+  }
+  return hits;
+}
+
+function render() {
+  if (!bytes) return;
+  const needle = parseSearch(searchBox.value);
+  const view = bytes.subarray(0, MAX_RENDER);
+  const hits = needle ? findMatches(view, needle, view.length) : [];
+  const hitSet = new Set();
+  for (const h of hits) {
+    for (let k = 0; k < needle.length; k++) hitSet.add(h + k);
+  }
+
+  let html = '<table>';
+  for (let row = 0; row < view.length; row += 16) {
+    const slice = view.subarray(row, row + 16);
+    const off = row.toString(16).padStart(8, '0');
+    let hex = '', ascii = '';
+    for (let i = 0; i < 16; i++) {
+      if (i < slice.length) {
+        const b = slice[i];
+        const h = b.toString(16).padStart(2, '0');
+        const c = (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+        hex += hitSet.has(row + i) ? '<span class="hl">' + h + '</span> ' : h + ' ';
+        ascii += hitSet.has(row + i) ? '<span class="hl">' + c + '</span>' : c;
+      } else {
+        hex += '   ';
+        ascii += ' ';
+      }
+      if (i === 7) hex += ' ';
+    }
+    html += '<tr><td class="off">' + off + '</td><td>' + hex +
+            '</td><td class="ascii">' + ascii + '</td></tr>';
+  }
+  html += '</table>';
+  out.innerHTML = html;
+
+  if (needle) {
+    meta.textContent = meta.textContent.split(' · ')[0] +
+      ' · ' + hits.length + ' match' + (hits.length === 1 ? '' : 'es');
+  }
+  if (bytes.length > MAX_RENDER) {
+    out.innerHTML += '<p class="note">File is larger than 512 KiB — showing the first 512 KiB only.</p>';
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# the compiled exercise binary (rebuild with ./build.sh)
+vault
+# local answer file for tools/check_answers.py
+answers.txt
+__pycache__/
