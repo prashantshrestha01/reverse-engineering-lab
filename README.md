@@ -47,4 +47,4 @@ Custom choices that shape this lab:
 - **The gate is a study gate.** Answer hashes + a base64 walkthrough in `check_answers.py` keep the solution from spoiling itself while scrolling — anyone determined can decode it, and that's fine; the learning is in the hunt.
 - **The takeaway is the point.** If a passphrase check ships inside a binary, the binary *is* the answer key. The walkthrough ends on where real verification belongs (server-side, or a real KDF/signature scheme).
 
-*Built by Prashant Shrestha · Mississauga, ON 🇨🇦 · [LinkedIn](https://www.linkedin.com/in/cto-prashant/)*
+*Built by Prashant Shrestha · Mississauga, ON 🇨🇦 · [LinkedIn](https://www.linkedin.com/in/prashant-me/)*
